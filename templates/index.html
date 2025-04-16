@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Blueprint Analyzer</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: Arial; max-width: 900px; margin: 2rem auto; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 2rem; }
+    th, td { border: 1px solid #000; padding: 8px; text-align: center; }
+    th { background-color: #f1f1f1; }
+    .upload-section { margin-bottom: 20px; }
+    .chart-container { margin-top: 40px; }
+  </style>
+</head>
+<body>
+  <h1>Blueprint Analyzer</h1>
+
+  <!-- Upload Zip file containing blueprint data -->
+  <form method="POST" enctype="multipart/form-data" class="upload-section">
+    <input type="file" name="file" accept=".zip" required />
+    <button type="submit">Upload & Process</button>
+  </form>
+
+  {% if error %}
+    <p style="color: red;">{{ error }}</p>
+  {% endif %}
+
+  {% if data %}
+    <h2>Blueprint #{{ data.blueprint }}</h2>
+    <p>Total Area: {{ data.totals.area_sqft }} sq ft</p>
+
+    <!-- Total Materials Table -->
+    <table>
+      <thead>
+        <tr><th colspan="2">Total Materials</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Flooring</td><td>{{ data.totals.flooring_sqft }} sq ft</td></tr>
+        <tr><td>Paint</td><td>{{ data.totals.paint_gallons }} gallons</td></tr>
+        <tr><td>Drywall</td><td>{{ data.totals.drywall_sheets }} sheets</td></tr>
+      </tbody>
+    </table>
+
+    <!-- Room Materials Table -->
+    <table>
+      <thead>
+        <tr>
+          <th>Room</th>
+          <th>Area (sq ft)</th>
+          <th>Flooring</th>
+          <th>Paint</th>
+          <th>Drywall</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for room in data.rooms %}
+        <tr>
+          <td>{{ room.room }}</td>
+          <td>{{ room.area_sqft }}</td>
+          <td>{{ room.flooring_sqft }}</td>
+          <td>{{ room.paint_gallons }}</td>
+          <td>{{ room.drywall_sheets }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <!-- Bar charts for flooring, drywall and paint per room -->
+    <div class="chart-container">
+      <h3>Flooring Needed (sq ft) per Room</h3>
+      <canvas id="flooringChart"></canvas>
+    </div>
+
+    <div class="chart-container">
+      <h3>Drywall Sheets Needed per Room</h3>
+      <canvas id="drywallChart"></canvas>
+    </div>
+
+    <div class="chart-container">
+      <h3>Paint Needed (gallons) per Room</h3>
+      <canvas id="paintChart"></canvas>
+    </div>
+
+    <!-- Compute waste reduction percentages for flooring, paint and drywall  -->
+    {% set flooring_pct = ((8000 - data.totals.flooring_sqft) / 8000 * 100) %}
+    {% set paint_pct = ((20 - data.totals.paint_gallons) / 20 * 100) %}
+    {% set drywall_pct = ((180 - data.totals.drywall_sheets) / 180 * 100) %}
+    {% set total_used = data.totals.flooring_sqft + data.totals.paint_gallons + data.totals.drywall_sheets %}
+    {% set total_possible = 8000 + 20 + 180 %}
+    {% set waste_saved = total_possible - total_used %}
+    {% set waste_pct = (waste_saved / total_possible * 100) %}
+
+    <div class="chart-container">
+      <h3>Waste Reduction per Material</h3>
+      <canvas id="wasteChart"></canvas>
+    </div>
+
+    <!-- Generate bar charts for material usage and waste reduction -->
+    <script>
+      const labels = {{ data.rooms | map(attribute='room') | list | tojson }};
+      const flooring = {{ data.rooms | map(attribute='flooring_sqft') | list | tojson }};
+      const drywall = {{ data.rooms | map(attribute='drywall_sheets') | list | tojson }};
+      const paint = {{ data.rooms | map(attribute='paint_gallons') | list | tojson }};
+
+      new Chart(document.getElementById('flooringChart'), {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{ label: 'Flooring (sq ft)', data: flooring, backgroundColor: '#60a5fa' }]
+        }
+      });
+
+      new Chart(document.getElementById('drywallChart'), {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{ label: 'Drywall (sheets)', data: drywall, backgroundColor: '#facc15' }]
+        }
+      });
+
+      new Chart(document.getElementById('paintChart'), {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{ label: 'Paint (gallons)', data: paint, backgroundColor: '#a78bfa' }]
+        }
+      });
+
+      new Chart(document.getElementById('wasteChart'), {
+        type: 'bar',
+        data: {
+          labels: ['Flooring', 'Paint', 'Drywall'],
+          datasets: [{
+            label: 'Total Waste Saved: {{ waste_pct | round(1) }}%',
+            data: [
+              {{ flooring_pct | round(0) }},
+              {{ paint_pct | round(0) }},
+              {{ drywall_pct | round(0) }}
+            ],
+            backgroundColor: ['#60a5fa', '#a78bfa', '#facc15']
+          }]
+        },
+        options: {
+          scales: {
+            y: { beginAtZero: true, title: { display: true, text: '%' } }
+          }
+        }
+      });
+    </script>
+
+    <!-- Upload Again Button -->
+    <form method="GET">
+      <button type="submit">Upload Another File</button>
+    </form>
+  {% endif %}
+</body>
+</html>
+
