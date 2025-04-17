@@ -1,0 +1,6 @@
+blueprint,room,area_sqft,flooring_sqft,paint_gallons,drywall_sheets
+90,Room 1,2837.16,3120.88,4.87,54
+90,Room 2,5093.35,5602.69,6.53,72
+90,Room 3,576.94,634.63,2.2,25
+90,Room 4,636.52,700.18,2.31,26
+90,TOTAL,9143.97,10058.37,15.9,177
